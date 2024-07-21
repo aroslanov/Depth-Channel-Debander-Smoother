@@ -47,20 +47,18 @@ def normalize_image(image):
     return (image - np.min(image)) / (np.max(image) - np.min(image))
 
 def extend_dynamic_range(image, black_point, white_point):
-    # Find the current min and max values of the image
-    current_min = np.min(image)
-    current_max = np.max(image)
+    # Convert black_point and white_point to float
+    black_point = float(black_point)
+    white_point = float(white_point)
     
-    # Calculate the scaling factor
-    scale = (white_point - black_point) / (current_max - current_min)
+    # Ensure white_point is greater than black_point
+    if white_point <= black_point:
+        raise ValueError("White point must be greater than black point")
     
-    # Apply the scaling and shifting to use the full range
-    image = (image - current_min) * scale + black_point
-    
-    # Ensure the values are clipped to the desired range
+    # Clip values below black point and above white point
     image = np.clip(image, black_point, white_point)
     
-    # Normalize to [0, 1] range
+    # Normalize the image based on the new black and white points
     image = (image - black_point) / (white_point - black_point)
     
     return image
@@ -72,11 +70,8 @@ def process_depth_image(input_path, output_path, large_scale, fine_scale, boost,
         print(f"Error: {e}")
         sys.exit(1)
     
-    # Extend dynamic range if black_point and white_point are provided
-    if black_point is not None and white_point is not None:
-        depth_map = extend_dynamic_range(depth_map, black_point, white_point)
-    else:
-        depth_map = normalize_image(depth_map)
+    # Always extend dynamic range
+    depth_map = extend_dynamic_range(depth_map, black_point, white_point)
     
     # First pass: reduce banding
     smoothed = reduce_banding(depth_map, large_scale, fine_scale, boost, detail_threshold)
@@ -147,7 +142,16 @@ def main():
                         args.spatial_sigma, args.range_sigma,
                         args.black_point, args.white_point)
     
+    print(f"Black point: {args.black_point}")
+    print(f"White point: {args.white_point}")
+    
+    process_depth_image(args.input_file, args.output_file, 
+                        args.large_scale, args.fine_scale, args.boost, args.detail_threshold,
+                        args.spatial_sigma, args.range_sigma,
+                        args.black_point, args.white_point)
+    
     print(f"Processed depth image saved as {args.output_file}")
+
 
 if __name__ == "__main__":
     main()
